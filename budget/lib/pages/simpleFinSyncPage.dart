@@ -1,4 +1,5 @@
 import 'package:budget/database/tables.dart';
+import 'package:drift/drift.dart' show Value;
 import 'package:budget/simplefin/simplefin_client.dart';
 import 'package:budget/simplefin/simplefin_service.dart';
 import 'package:budget/simplefin/simplefin_storage.dart';
@@ -49,16 +50,41 @@ class _SimpleFinSyncPageState extends State<SimpleFinSyncPage> {
     final accessUrl = await SimplefinStorage.getAccessUrl();
     final mappings = SimplefinStorage.getAccountMappings();
     final lastSync = SimplefinStorage.getLastSyncTime();
-    final defaultCategory = SimplefinStorage.getDefaultCategoryPk();
+    // Ensure Uncategorized always exists
+    const uncategorizedPk = 'sf-uncategorized';
+    final allCategories = await database.getAllCategories();
+    if (!allCategories.any((c) => c.categoryPk == uncategorizedPk)) {
+      await database.createOrUpdateCategory(
+        TransactionCategory(
+          categoryPk: uncategorizedPk,
+          name: 'Uncategorized',
+          colour: null,
+          iconName: null,
+          emojiIconName: null,
+          dateCreated: DateTime.now(),
+          dateTimeModified: Value(DateTime.now()).value,
+          order: allCategories.length,
+          income: false,
+          methodAdded: MethodAdded.simplefin,
+          mainCategoryPk: null,
+        ),
+        updateSharedEntry: false,
+      );
+    }
     final categories = await database.getAllCategories();
+    final defaultCategory =
+        SimplefinStorage.getDefaultCategoryPk() ?? uncategorizedPk;
+    // Save uncategorized as default if nothing set yet
+    if (SimplefinStorage.getDefaultCategoryPk() == null) {
+      await SimplefinStorage.saveDefaultCategoryPk(uncategorizedPk);
+    }
 
     setState(() {
       _isConnected = accessUrl != null;
       _mappings = mappings;
       _lastSync = lastSync;
       _defaultCategoryPk = defaultCategory;
-      _categories =
-          categories.where((c) => c.mainCategoryPk == null).toList();
+      _categories = categories.where((c) => c.mainCategoryPk == null).toList();
       _loading = false;
     });
 
@@ -289,11 +315,9 @@ class _SimpleFinSyncPageState extends State<SimpleFinSyncPage> {
             // ── Default category ──────────────────────────────────────────────
             SettingsHeader(title: 'Default Category'),
             Padding(
-              padding:
-                  const EdgeInsetsDirectional.symmetric(horizontal: 16),
+              padding: const EdgeInsetsDirectional.symmetric(horizontal: 16),
               child: TextFont(
-                text:
-                    'Imported transactions are assigned this category. Recategorize manually after syncing.',
+                text: 'Imported transactions are assigned this category. Recategorize manually after syncing.',
                 fontSize: 13,
                 maxLines: 5,
                 textColor: getColor(context, 'textLight'),
@@ -302,11 +326,10 @@ class _SimpleFinSyncPageState extends State<SimpleFinSyncPage> {
             const SizedBox(height: 8),
             if (_categories.isNotEmpty)
               Padding(
-                padding:
-                    const EdgeInsetsDirectional.symmetric(horizontal: 16),
+                padding: const EdgeInsetsDirectional.symmetric(horizontal: 16),
                 child: _CategoryDropdown(
                   categories: _categories,
-                  selectedPk: _defaultCategoryPk ?? _categories.first.categoryPk,
+                  selectedPk: _defaultCategoryPk ?? 'sf-uncategorized',
                   onChanged: (pk) {
                     SimplefinStorage.saveDefaultCategoryPk(pk);
                     setState(() => _defaultCategoryPk = pk);

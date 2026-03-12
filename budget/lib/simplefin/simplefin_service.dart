@@ -41,8 +41,27 @@ class SimplefinService {
 
     final mappings = SimplefinStorage.getAccountMappings();
 
+    // Ensure an Uncategorized category exists for SimpleFIN imports
+    const uncategorizedPk = 'sf-uncategorized';
+    final allCategories = await database.getAllCategories();
+    await database.createOrUpdateCategory(
+      TransactionCategory(
+        categoryPk: uncategorizedPk,
+        name: 'Uncategorized',
+        colour: null,
+        iconName: null,
+        emojiIconName: null,
+        dateCreated: DateTime.now(),
+        dateTimeModified: Value(DateTime.now()).value,
+        order: allCategories.length,
+        income: false,
+        methodAdded: MethodAdded.simplefin,
+        mainCategoryPk: null,
+      ),
+      updateSharedEntry: false,
+    );
     final defaultCategoryPk =
-        SimplefinStorage.getDefaultCategoryPk() ?? '1'; // fallback: first default category
+        SimplefinStorage.getDefaultCategoryPk() ?? uncategorizedPk;
 
     final lastSync = fullSync ? null : SimplefinStorage.getLastSyncTime();
     // First sync or full sync: go back 90 days. Subsequent syncs: overlap 3 days to catch late-posting transactions.
