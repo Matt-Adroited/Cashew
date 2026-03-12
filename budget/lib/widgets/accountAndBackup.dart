@@ -117,7 +117,7 @@ Future<bool> signInGoogle(
         // So we will keep these to apply for all users to prevent errors, especially on silent sign in
         "https://www.googleapis.com/auth/userinfo.profile",
         "https://www.googleapis.com/auth/userinfo.email",
-        drive.DriveApi.driveAppdataScope,
+        drive.DriveApi.driveScope,
         ...(drivePermissionsAttachments == true
             ? [drive.DriveApi.driveFileScope]
             : []),
@@ -435,7 +435,8 @@ Future<void> createBackup(
       driveFile.name =
           getCurrentDeviceSyncBackupFileName(clientIDForSync: clientIDForSync);
     driveFile.modifiedTime = DateTime.now().toUtc();
-    driveFile.parents = ["appDataFolder"];
+    final cashewFolderId = await getCashewFolderID(driveApi);
+    driveFile.parents = [cashewFolderId];
 
     await driveApi.files.create(driveFile, uploadMedia: media);
 
@@ -487,8 +488,10 @@ Future<void> deleteRecentBackups(context, amountToKeep,
     final authenticateClient = GoogleAuthClient(authHeaders);
     final driveApi = drive.DriveApi(authenticateClient);
 
+    final folderId = await getCashewFolderID(driveApi);
     drive.FileList fileList = await driveApi.files.list(
-      spaces: 'appDataFolder',
+      q: "'$folderId' in parents and trashed=false",
+      spaces: 'drive',
       $fields: 'files(id, name, modifiedTime, size)',
     );
     List<drive.File>? files = fileList.files;
@@ -528,6 +531,24 @@ Future<void> deleteBackup(drive.DriveApi driveApi, String fileId) async {
   } catch (e) {
     openSnackbar(SnackbarMessage(title: e.toString()));
   }
+}
+
+/// Finds or creates the "Cashew" folder in the user's Google Drive root.
+/// All backup files are stored here so both Android and web apps can share them.
+Future<String> getCashewFolderID(drive.DriveApi driveApi) async {
+  final fileList = await driveApi.files.list(
+    q: "name='Cashew' and mimeType='application/vnd.google-apps.folder' and trashed=false",
+    spaces: 'drive',
+    $fields: 'files(id)',
+  );
+  if (fileList.files != null && fileList.files!.isNotEmpty) {
+    return fileList.files!.first.id!;
+  }
+  final folder = drive.File()
+    ..name = 'Cashew'
+    ..mimeType = 'application/vnd.google-apps.folder';
+  final created = await driveApi.files.create(folder);
+  return created.id!;
 }
 
 Future<void> chooseBackup(context,
@@ -768,8 +789,10 @@ Future<(drive.DriveApi? driveApi, List<drive.File>?)> getDriveFiles() async {
     final authenticateClient = GoogleAuthClient(authHeaders);
     drive.DriveApi driveApi = drive.DriveApi(authenticateClient);
 
+    final folderId = await getCashewFolderID(driveApi);
     drive.FileList fileList = await driveApi.files.list(
-        spaces: 'appDataFolder',
+        q: "'$folderId' in parents and trashed=false",
+        spaces: 'drive',
         $fields: 'files(id, name, modifiedTime, size)');
     return (driveApi, fileList.files);
   } catch (e) {

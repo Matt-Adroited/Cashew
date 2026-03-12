@@ -705,8 +705,8 @@ showHelpRestorePopup(BuildContext context) {
     onCancelLabel: "close".tr(),
     onSubmitLabel: "contact".tr(),
     onSubmit: () async {
-      bool openResult = await openUrl('mailto:dapperappdeveloper@gmail.com');
-      if (openResult == false) copyToClipboard("dapperappdeveloper@gmail.com");
+      bool openResult = await openUrl('mailto:matt@adroited.com');
+      if (openResult == false) copyToClipboard("matt@adroited.com");
     },
     onExtra: () =>
         openUrl("https://cashewapp.web.app/faq.html#restoring-purchases"),
@@ -1423,7 +1423,7 @@ class PremiumBanner extends StatelessWidget {
             borderRadius: borderRadius,
             onTap: () {
               if (kIsWeb)
-                openUrl("https://ko-fi.com/dapperappdeveloper");
+                openUrl("");
               else
                 openContainer();
             },

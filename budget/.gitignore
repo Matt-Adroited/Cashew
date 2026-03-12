@@ -53,5 +53,9 @@ app.*.map.json
 key.properties
 keystore.jks
 
+# Firebase config (contains private API keys - do not commit)
+android/app/google-services.json
+lib/firebase_options.dart
+
 /.firebase
 .firebase/

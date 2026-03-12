@@ -1,11 +1,13 @@
 import 'dart:convert';
 import 'package:budget/struct/databaseGlobal.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 /// Handles persistence for SimpleFIN credentials and configuration.
 ///
-/// The Access URL (which contains credentials) is kept in flutter_secure_storage.
-/// Account mappings, last sync time, and default category are in SharedPreferences.
+/// On mobile/desktop: Access URL is stored in flutter_secure_storage.
+/// On web: flutter_secure_storage is unavailable, so SharedPreferences is used.
+/// Account mappings, last sync time, and default category always use SharedPreferences.
 class SimplefinStorage {
   static const _storage = FlutterSecureStorage(
     aOptions: AndroidOptions(encryptedSharedPreferences: true),
@@ -20,15 +22,26 @@ class SimplefinStorage {
   // ── Access URL ──────────────────────────────────────────────────────────────
 
   static Future<void> saveAccessUrl(String url) async {
-    await _storage.write(key: _accessUrlKey, value: url);
+    if (kIsWeb) {
+      await sharedPreferences.setString(_accessUrlKey, url);
+    } else {
+      await _storage.write(key: _accessUrlKey, value: url);
+    }
   }
 
   static Future<String?> getAccessUrl() async {
+    if (kIsWeb) {
+      return sharedPreferences.getString(_accessUrlKey);
+    }
     return await _storage.read(key: _accessUrlKey);
   }
 
   static Future<void> clearAccessUrl() async {
-    await _storage.delete(key: _accessUrlKey);
+    if (kIsWeb) {
+      await sharedPreferences.remove(_accessUrlKey);
+    } else {
+      await _storage.delete(key: _accessUrlKey);
+    }
   }
 
   // ── Account mappings: simplefin account ID → cashew wallet PK ───────────────

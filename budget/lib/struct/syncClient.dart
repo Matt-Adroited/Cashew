@@ -132,8 +132,11 @@ Future<bool> createSyncBackup(
     throw "Failed to login to Google Drive";
   }
 
+  final folderId1 = await getCashewFolderID(driveApi);
   drive.FileList fileList = await driveApi.files.list(
-      spaces: 'appDataFolder', $fields: 'files(id, name, modifiedTime, size)');
+      q: "'$folderId1' in parents and trashed=false",
+      spaces: 'drive',
+      $fields: 'files(id, name, modifiedTime, size)');
   List<drive.File>? files = fileList.files;
 
   for (drive.File file in files ?? []) {
@@ -253,8 +256,11 @@ Future<bool> _syncData(BuildContext context) async {
 
   await createSyncBackup();
 
+  final folderId2 = await getCashewFolderID(driveApi);
   drive.FileList fileList = await driveApi.files.list(
-      spaces: 'appDataFolder', $fields: 'files(id, name, modifiedTime, size)');
+      q: "'$folderId2' in parents and trashed=false",
+      spaces: 'drive',
+      $fields: 'files(id, name, modifiedTime, size)');
   List<drive.File>? files = fileList.files;
 
   if (files == null) {
