@@ -135,6 +135,34 @@ class _SimpleFinSyncPageState extends State<SimpleFinSyncPage> {
     }
   }
 
+  Future<void> _clearData() async {
+    final confirmed = await openPopup(
+      context,
+      title: 'Clear Imported Data?',
+      description:
+          'This will delete all SimpleFIN transactions from Cashew and reset the sync timer. Your accounts/wallets and any manually added transactions will not be affected.',
+      icon: appStateSettings["outlinedIcons"]
+          ? Icons.delete_sweep_outlined
+          : Icons.delete_sweep_rounded,
+      onSubmit: () => Navigator.of(context).pop(true),
+      onCancel: () => Navigator.of(context).pop(false),
+      onSubmitLabel: 'Clear',
+      onCancelLabel: 'Cancel',
+    );
+    if (confirmed != true) return;
+
+    await openLoadingPopupTryCatch(() async {
+      return await SimplefinService.clearSyncData();
+    }, onSuccess: (result) {
+      setState(() => _lastSync = null);
+      openSnackbar(SnackbarMessage(
+        title: 'Cleared',
+        description: '$result transactions deleted',
+        icon: Icons.delete_sweep_rounded,
+      ));
+    });
+  }
+
   Future<void> _syncNow({bool fullSync = false}) async {
     await openLoadingPopupTryCatch(() async {
       return await SimplefinService.sync(fullSync: fullSync);
@@ -241,6 +269,14 @@ class _SimpleFinSyncPageState extends State<SimpleFinSyncPage> {
                   ? Icons.history_outlined
                   : Icons.history_rounded,
               onTap: _loadingAccounts ? null : () => _syncNow(fullSync: true),
+            ),
+            SettingsContainer(
+              title: 'Clear Imported Data',
+              description: 'Delete all SimpleFIN transactions from Cashew and reset sync timer',
+              icon: appStateSettings["outlinedIcons"]
+                  ? Icons.delete_sweep_outlined
+                  : Icons.delete_sweep_rounded,
+              onTap: _clearData,
             ),
             SettingsContainer(
               title: 'Disconnect',
@@ -409,9 +445,11 @@ class _AccountMappingRow extends StatelessWidget {
           Expanded(
             flex: 6,
             child: DropdownButtonFormField<String?>(
-              value: wallets.any((w) => w.walletPk == selectedWalletPk)
-                  ? selectedWalletPk
-                  : null,
+              value: selectedWalletPk == 'auto'
+                  ? 'auto'
+                  : wallets.any((w) => w.walletPk == selectedWalletPk)
+                      ? selectedWalletPk
+                      : null,
               decoration: InputDecoration(
                 border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12)),
@@ -419,18 +457,18 @@ class _AccountMappingRow extends StatelessWidget {
                     horizontal: 12, vertical: 8),
               ),
               hint: TextFont(
-                text: 'Auto-create account',
+                text: 'Skip',
                 fontSize: 13,
                 textColor: getColor(context, 'textLight'),
               ),
               items: [
                 const DropdownMenuItem<String?>(
                   value: null,
-                  child: Text('Auto-create account'),
+                  child: Text('Skip'),
                 ),
                 const DropdownMenuItem<String?>(
-                  value: 'skip',
-                  child: Text('Skip'),
+                  value: 'auto',
+                  child: Text('Auto-create account'),
                 ),
                 ...wallets.map((w) => DropdownMenuItem<String?>(
                       value: w.walletPk,

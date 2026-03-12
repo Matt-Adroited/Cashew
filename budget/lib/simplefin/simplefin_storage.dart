@@ -54,6 +54,10 @@ class SimplefinStorage {
     await sharedPreferences.setInt(_lastSyncMsKey, time.millisecondsSinceEpoch);
   }
 
+  static Future<void> clearLastSyncTime() async {
+    await sharedPreferences.remove(_lastSyncMsKey);
+  }
+
   // ── Default category PK for uncategorized imports ───────────────────────────
 
   static String? getDefaultCategoryPk() {

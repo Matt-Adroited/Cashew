@@ -64,32 +64,41 @@ class SimplefinService {
 
     for (final account in accounts) {
       String? walletPk = updatedMappings[account.id];
-      if (walletPk == 'skip') {
+
+      // null (unmapped) or 'skip' both mean skip
+      if (walletPk == null || walletPk == 'skip') {
         skipped += account.transactions.length;
         continue;
       }
-      if (walletPk == null) {
-        // Auto-create a new Cashew account for this SimpleFIN account
-        final existingWallets = await database.getAllWallets();
-        final newPk = uuid.v4();
-        await database.createOrUpdateWallet(
-          TransactionWallet(
-            walletPk: newPk,
-            name: account.name.isNotEmpty ? account.name : account.orgName,
-            colour: null,
-            iconName: null,
-            dateCreated: DateTime.now(),
-            dateTimeModified: Value(DateTime.now()).value,
-            order: existingWallets.length,
-            currency: account.currency.isNotEmpty ? account.currency : null,
-            currencyFormat: null,
-            decimals: 2,
-            homePageWidgetDisplay: null,
-          ),
-        );
-        updatedMappings[account.id] = newPk;
-        await SimplefinStorage.saveAccountMappings(updatedMappings);
-        walletPk = newPk;
+
+      // 'auto' means create a new Cashew wallet for this account
+      if (walletPk == 'auto') {
+        try {
+          final existingWallets = await database.getAllWallets();
+          final newPk = uuid.v4();
+          await database.createOrUpdateWallet(
+            TransactionWallet(
+              walletPk: newPk,
+              name: account.name.isNotEmpty ? account.name : account.orgName,
+              colour: null,
+              iconName: null,
+              dateCreated: DateTime.now(),
+              dateTimeModified: Value(DateTime.now()).value,
+              order: existingWallets.length,
+              currency: account.currency.isNotEmpty ? account.currency : null,
+              currencyFormat: null,
+              decimals: 2,
+              homePageWidgetDisplay: null,
+            ),
+          );
+          updatedMappings[account.id] = newPk;
+          await SimplefinStorage.saveAccountMappings(updatedMappings);
+          walletPk = newPk;
+        } catch (e) {
+          errors.add('Failed to create wallet for ${account.name}: $e');
+          skipped += account.transactions.length;
+          continue;
+        }
       }
 
       for (final txn in account.transactions) {
@@ -127,6 +136,21 @@ class SimplefinService {
     await SimplefinStorage.saveLastSyncTime(DateTime.now());
     return SimplefinSyncResult(
         imported: imported, skipped: skipped, errors: errors);
+  }
+
+  /// Delete all SimpleFIN-imported transactions and reset the last sync time.
+  /// Wallets are kept so the user doesn't lose their account setup.
+  static Future<int> clearSyncData() async {
+    final sfTransactions = await (database.select(database.transactions)
+          ..where((t) =>
+              t.methodAdded.equalsValue(MethodAdded.simplefin)))
+        .get();
+    final pks = sfTransactions.map((t) => t.transactionPk).toList();
+    if (pks.isNotEmpty) {
+      await database.deleteTransactions(pks, updateSharedEntry: false);
+    }
+    await SimplefinStorage.clearLastSyncTime();
+    return pks.length;
   }
 
   /// Returns true if a sync should be triggered (access URL set and
