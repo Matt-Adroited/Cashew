@@ -41,6 +41,7 @@ class ClaudeAIService {
     'Gifts & Donations',
     'Income',
     'Paycheck',
+    'Credit Card Payment',
     'Transfer',
   ];
 
@@ -141,8 +142,15 @@ class ClaudeAIService {
         'Categorize each transaction below. For each, choose the single best '
         'category from the provided list. Reply with a JSON array of category '
         'names in the same order as the transactions. Only use names exactly as '
-        'they appear in the category list. If none fit well, use "Uncategorized".'
-        '\n\nCategories: $categoryNames'
+        'they appear in the category list. If none fit well, use "Uncategorized".\n\n'
+        'Important rules:\n'
+        '- Transactions with words like "payment", "autopay", "online payment", '
+        '"thank you", or "pymt" that appear to be bill or credit card payments '
+        'should be categorized as "Credit Card Payment" if that category exists, '
+        'otherwise "Transfer".\n'
+        '- Only use "Income" or "Paycheck" for actual earnings like wages, salary, '
+        'direct deposit from an employer, or investment returns.\n\n'
+        'Categories: $categoryNames'
         '\n\nTransactions:\n$transactionLines'
         '\n\nReply with only the JSON array, no other text.';
 
